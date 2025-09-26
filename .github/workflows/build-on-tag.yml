@@ -28,15 +28,9 @@ jobs:
       name: production
       url: https://example.com
     steps:
-      - name: Wait for approval
-        uses: andymckay/approve-action@master
-        with:
-          reviewers: ${{ github.actor }}
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Simulate prod build
         run: |
           echo "Running production build for tag ${GITHUB_REF_NAME}"
-

@@ -1,0 +1,109 @@
+name: Semver Tagging Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: semver-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Configure Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch tags
+        run: git fetch --tags --force
+
+      - name: Read package.json version
+        id: pkg
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+
+      - name: Ensure initial tag exists from package.json
+        id: ensure_tag
+        env:
+          VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          if git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' >/dev/null; then
+            echo "created=false" >> $GITHUB_OUTPUT
+          else
+            echo "No semver tags found. Creating initial tag ${VERSION}."
+            if [ -z "${VERSION}" ]; then
+              echo "Package version missing"; exit 1
+            fi
+            git tag -a "${VERSION}" -m "${VERSION}"
+            git push origin "${VERSION}"
+            echo "created=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Calculate next version from conventional commits
+        id: semver
+        uses: ietf-tools/semver-action@v1
+        with:
+          token: ${{ github.token }}
+          branch: main
+          tagFilter: ^([0-9]+\.[0-9]+\.[0-9]+)$
+          noNewCommitBehavior: current
+          noVersionBumpBehavior: current
+
+      - name: Decide if bump is needed
+        id: decide
+        run: |
+          echo "current=${{ steps.semver.outputs.current }}" >> $GITHUB_OUTPUT
+          echo "nextStrict=${{ steps.semver.outputs.nextStrict }}" >> $GITHUB_OUTPUT
+          if [ "${{ steps.semver.outputs.nextStrict }}" = "${{ steps.pkg.outputs.version }}" ]; then
+            echo "bump=false" >> $GITHUB_OUTPUT
+          else
+            echo "bump=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update package.json to next version and push
+        if: steps.decide.outputs.bump == 'true'
+        env:
+          VERSION: ${{ steps.semver.outputs.nextStrict }}
+        run: |
+          node -e "const fs=require('fs');const p='./package.json';const pkg=JSON.parse(fs.readFileSync(p,'utf8'));pkg.version=process.env.VERSION;fs.writeFileSync(p, JSON.stringify(pkg, null, 2)+'\n');"
+          git add package.json
+          git commit -m "chore(release): ${VERSION} [skip ci]"
+          git push origin HEAD:main
+
+      - name: Create tag for next version
+        if: steps.decide.outputs.bump == 'true'
+        env:
+          VERSION: ${{ steps.semver.outputs.nextStrict }}
+        run: |
+          git tag -a "${VERSION}" -m "${VERSION}"
+          git push origin "${VERSION}"
+
+      - name: Create GitHub Release
+        if: steps.decide.outputs.bump == 'true'
+        uses: ncipollo/release-action@v1.13.0
+        with:
+          tag: ${{ steps.semver.outputs.nextStrict }}
+          name: ${{ steps.semver.outputs.nextStrict }}
+          body: Automated release
+          token: ${{ github.token }}
+          allowUpdates: true
+          draft: false
+          makeLatest: true

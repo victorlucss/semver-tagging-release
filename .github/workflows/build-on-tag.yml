@@ -1,0 +1,42 @@
+name: Build on Tag
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+
+jobs:
+  dev-build:
+    name: Development Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Simulate dev build
+        run: |
+          echo "Running development build for tag ${GITHUB_REF_NAME}"
+
+  prod-build:
+    name: Production Build
+    needs: dev-build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://example.com
+    steps:
+      - name: Wait for approval
+        uses: andymckay/approve-action@master
+        with:
+          reviewers: ${{ github.actor }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Simulate prod build
+        run: |
+          echo "Running production build for tag ${GITHUB_REF_NAME}"
+

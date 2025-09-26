@@ -3,7 +3,10 @@ name: Build on Tag
 on:
   push:
     tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
+      - "*.*.*"
+  workflow_run:
+    workflows: ["Semver Tagging Release"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -11,14 +14,29 @@ permissions:
 jobs:
   dev-build:
     name: Development Build
+    # Run on tag pushes or when the semver workflow completes successfully
+    if: github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.determine_tag.outputs.tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Determine tag name
+        id: determine_tag
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            git fetch --tags --force
+            TAG=$(git tag --sort=-creatordate | head -n1)
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Simulate dev build
         run: |
-          echo "Running development build for tag ${GITHUB_REF_NAME}"
+          echo "Running development build for tag ${{ steps.determine_tag.outputs.tag }}"
 
   prod-build:
     name: Production Build
@@ -33,4 +51,4 @@ jobs:
 
       - name: Simulate prod build
         run: |
-          echo "Running production build for tag ${GITHUB_REF_NAME}"
+          echo "Running production build for tag ${{ needs.dev-build.outputs.tag }}"

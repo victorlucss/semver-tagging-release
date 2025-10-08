@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   dev-build:
@@ -34,19 +35,29 @@ jobs:
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Trigger Development Build Workflow
+        uses: actions/github-script@v7
         with:
-          node-version: "20"
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run development build
-        run: |
-          echo "🚀 Running development build for tag ${{ steps.determine_tag.outputs.tag }}"
-          echo "📦 Package version: $(node -p "require('./package.json').version")"
-          echo "✅ Development build completed successfully"
+          script: |
+            console.log('🚀 Triggering development build for tag ${{ steps.determine_tag.outputs.tag }}');
+            
+            const { data: workflow } = await github.rest.actions.getWorkflow({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'create-development-build.yml'
+            });
+            
+            const { data: run } = await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: workflow.id,
+              ref: 'main',
+              inputs: {
+                tag: '${{ steps.determine_tag.outputs.tag }}'
+              }
+            });
+            
+            console.log(`✅ Development build workflow triggered: ${run.html_url}`);
 
   prod-build:
     name: Production Build
@@ -59,17 +70,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Trigger Production Build Workflow
+        uses: actions/github-script@v7
         with:
-          node-version: "20"
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run production build
-        run: |
-          echo "🚀 Running production build for tag ${{ needs.dev-build.outputs.tag }}"
-          echo "📦 Package version: $(node -p "require('./package.json').version")"
-          echo "🔒 Production build requires manual approval"
-          echo "✅ Production build completed successfully"
+          script: |
+            console.log('🚀 Triggering production build for tag ${{ needs.dev-build.outputs.tag }}');
+            console.log('🔒 Production build requires manual approval');
+            
+            const { data: workflow } = await github.rest.actions.getWorkflow({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'create-production-build.yml'
+            });
+            
+            const { data: run } = await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: workflow.id,
+              ref: 'main',
+              inputs: {
+                tag: '${{ needs.dev-build.outputs.tag }}'
+              }
+            });
+            
+            console.log(`✅ Production build workflow triggered: ${run.html_url}`);

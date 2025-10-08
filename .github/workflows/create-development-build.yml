@@ -1,0 +1,105 @@
+name: Create Development Build
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch: # allow manual triggering if needed
+    inputs:
+      tag:
+        description: 'Tag version for the build'
+        required: false
+        default: 'latest'
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: yarn.lock
+
+      - name: Install Yarn
+        run: npm install -g yarn
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Install EAS CLI
+        run: yarn global add eas-cli
+
+  build-rdplus:
+    name: Build RDPlus
+    needs: [setup]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: yarn.lock
+
+      - name: Install Yarn
+        run: npm install -g yarn
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Install EAS CLI
+        run: yarn global add eas-cli
+
+      - name: Display Build Information
+        run: |
+          echo "🚀 Starting Development Build"
+          echo "📦 Tag: ${{ github.event.inputs.tag || 'latest' }}"
+          echo "📱 Platform: iOS (RDPlus)"
+          echo "🔧 Profile: development-rdplus"
+
+      - name: Build and Submit iOS Development (RDPlus)
+        run: |
+          EAS_SKIP_AUTO_FINGERPRINT=1 EXPO_TOKEN=${{ secrets.EXPO_TOKEN }} eas build --platform ios --profile development-rdplus --auto-submit --non-interactive --no-wait
+
+      # - name: Build and Submit Android Development (RDPlus)
+      #   run: |
+      #     EAS_SKIP_AUTO_FINGERPRINT=1 EXPO_TOKEN=${{ secrets.EXPO_TOKEN }} eas build --platform android --profile development-rdplus --auto-submit --non-interactive --no-wait
+
+  # build-mumbuca:
+  #   name: Build Mumbuca
+  #   needs: [setup]
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'yarn'
+  #         cache-dependency-path: yarn.lock
+
+  #     - name: Install Yarn
+  #       run: npm install -g yarn
+
+  #     - name: Install dependencies
+  #       run: yarn install
+
+  #     - name: Install EAS CLI
+  #       run: yarn global add eas-cli
+
+  #     - name: Build and Submit iOS Development (Mumbuca)
+  #       run: |
+  #         EAS_SKIP_AUTO_FINGERPRINT=1 EXPO_TOKEN=${{ secrets.EXPO_TOKEN }} eas build --platform ios --profile development-mumbuca --auto-submit --non-interactive --no-wait
+
+  #     - name: Build and Submit Android Development (Mumbuca)
+  #       run: |
+  #         EAS_SKIP_AUTO_FINGERPRINT=1 EXPO_TOKEN=${{ secrets.EXPO_TOKEN }} eas build --platform android --profile development-mumbuca --auto-submit --non-interactive --no-wait

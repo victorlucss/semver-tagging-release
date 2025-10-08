@@ -1,3 +1,7 @@
+## [1.6.1] - 2025-10-08
+
+- refactor: consolidate EAS build workflows into build-on-tag
+
 ## [1.6.0] - 2025-10-08
 
 - feat: integrate actual EAS build workflows with build-on-tag

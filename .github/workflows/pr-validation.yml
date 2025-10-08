@@ -18,6 +18,7 @@ jobs:
           fetch-depth: 0
 
       - name: Conventional PR Validation
+        id: validation
         uses: Namchee/conventional-pr@v0.15.6
         with:
           access_token: ${{ secrets.GITHUB_TOKEN }}
@@ -27,3 +28,88 @@ jobs:
           branch_pattern: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)/.+$'
           issue: 'false'
           maximum_changes: '50'
+          message: |
+            ## 🔍 Conventional Commits Validation
+            
+            ❌ **Some validations failed**
+            
+            Please ensure your PR follows the conventional commit format:
+            
+            **Format:** `<type>(<scope>): <description>`
+            
+            **Valid types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`, `revert`
+            
+            **Examples:**
+            - `feat: add user authentication`
+            - `fix: resolve login bug`
+            - `docs: update API documentation`
+            - `chore: update dependencies`
+            
+            ### 🔧 How to fix:
+            
+            **Update PR title:** Edit the PR title directly
+            
+            **Update commits:**
+            ```bash
+            # Interactive rebase (recommended)
+            git rebase -i HEAD~<number-of-commits>
+            
+            # Amend last commit
+            git commit --amend -m "feat: your new message"
+            
+            # Force push after changes
+            git push --force-with-lease
+            ```
+            
+            ⚠️ **Note:** This validation helps ensure automatic versioning works correctly.
+          close: 'false'
+          label: 'invalid'
+          draft: 'false'
+          strict: 'true'
+          bot: 'true'
+          verbose: 'true'
+          edit: 'true'
+        continue-on-error: true
+
+      - name: Comment on successful validation
+        if: steps.validation.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prTitle = '${{ github.event.pull_request.title }}';
+            
+            const commentBody = `## 🔍 Conventional Commits Validation
+              
+              ✅ **All validations passed!**
+              
+              **PR Title:** \`${prTitle}\` ✅
+              
+              🚀 This PR is ready for automatic versioning when merged.`;
+            
+            // Find and update existing bot comment or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('🔍 Conventional Commits Validation')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }

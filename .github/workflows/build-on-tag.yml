@@ -35,29 +35,32 @@ jobs:
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Trigger Development Build Workflow
-        uses: actions/github-script@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          script: |
-            console.log('🚀 Triggering development build for tag ${{ steps.determine_tag.outputs.tag }}');
-            
-            const { data: workflow } = await github.rest.actions.getWorkflow({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'create-development-build.yml'
-            });
-            
-            const { data: run } = await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: workflow.id,
-              ref: 'main',
-              inputs: {
-                tag: '${{ steps.determine_tag.outputs.tag }}'
-              }
-            });
-            
-            console.log(`✅ Development build workflow triggered: ${run.html_url}`);
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: yarn.lock
+
+      - name: Install Yarn
+        run: npm install -g yarn
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Install EAS CLI
+        run: yarn global add eas-cli
+
+      - name: Display Development Build Information
+        run: |
+          echo "🚀 Starting Development Build"
+          echo "📦 Tag: ${{ steps.determine_tag.outputs.tag }}"
+          echo "📱 Platform: iOS (RDPlus)"
+          echo "🔧 Profile: development-rdplus"
+
+      - name: Build and Submit iOS Development (RDPlus)
+        run: |
+          EAS_SKIP_AUTO_FINGERPRINT=1 EXPO_TOKEN=${{ secrets.EXPO_TOKEN }} eas build --platform ios --profile development-rdplus --auto-submit --non-interactive --no-wait
 
   prod-build:
     name: Production Build
@@ -70,27 +73,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Trigger Production Build Workflow
-        uses: actions/github-script@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          script: |
-            console.log('🚀 Triggering production build for tag ${{ needs.dev-build.outputs.tag }}');
-            console.log('🔒 Production build requires manual approval');
-            
-            const { data: workflow } = await github.rest.actions.getWorkflow({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'create-production-build.yml'
-            });
-            
-            const { data: run } = await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: workflow.id,
-              ref: 'main',
-              inputs: {
-                tag: '${{ needs.dev-build.outputs.tag }}'
-              }
-            });
-            
-            console.log(`✅ Production build workflow triggered: ${run.html_url}`);
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: yarn.lock
+
+      - name: Install Yarn
+        run: npm install -g yarn
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Install EAS CLI
+        run: yarn global add eas-cli
+
+      - name: Display Production Build Information
+        run: |
+          echo "🚀 Starting Production Build"
+          echo "📦 Tag: ${{ needs.dev-build.outputs.tag }}"
+          echo "📱 Platform: iOS & Android (RDPlus + Mumbuca)"
+          echo "🔧 Profile: production-rdplus, production-mumbuca"
+          echo "🔒 Production build requires manual approval"
+
+      - name: Build iOS Production (RDPlus)
+        run: |
+          EAS_SKIP_AUTO_FINGERPRINT=1 EXPO_TOKEN=${{ secrets.EXPO_TOKEN }} eas build --platform ios --profile production-rdplus --auto-submit --non-interactive --no-wait
+
+      - name: Build Android Production (RDPlus)
+        run: |
+          EAS_SKIP_AUTO_FINGERPRINT=1 EXPO_TOKEN=${{ secrets.EXPO_TOKEN }} eas build --platform android --profile production-rdplus --auto-submit --non-interactive --no-wait
+
+      - name: Build iOS Production (Mumbuca)
+        run: |
+          EAS_SKIP_AUTO_FINGERPRINT=1 EXPO_TOKEN=${{ secrets.EXPO_TOKEN }} eas build --platform ios --profile production-mumbuca --auto-submit --non-interactive --no-wait
+
+      - name: Build Android Production (Mumbuca)
+        run: |
+          EAS_SKIP_AUTO_FINGERPRINT=1 EXPO_TOKEN=${{ secrets.EXPO_TOKEN }} eas build --platform android --profile production-mumbuca --auto-submit --non-interactive --no-wait

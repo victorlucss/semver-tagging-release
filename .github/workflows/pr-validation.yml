@@ -1,0 +1,32 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  validate-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate PR Title
+        uses: ytanikin/PRConventionalCommits@1.1.0
+        with:
+          task_types: '["feat","fix","docs","test","ci","refactor","perf","chore","revert"]'
+          add_label: 'false'
+
+      - name: Verify Conventional Commits
+        uses: taskmedia/action-conventional-commits@v1.1.19
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          skip_merge: 'true'
+          skip_revert: 'true'
+          types: 'feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert'

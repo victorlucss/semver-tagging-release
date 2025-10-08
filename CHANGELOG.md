@@ -1,3 +1,7 @@
+## [1.4.0] - 2025-10-08
+
+- feat: test release workflow with simplified approach
+
 ## [1.3.0] - 2025-10-08
 
 - fix: simplify release workflow to avoid Changesets permission issues

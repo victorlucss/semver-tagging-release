@@ -97,13 +97,31 @@ jobs:
           git tag -a "${VERSION}" -m "${VERSION}"
           git push origin "${VERSION}"
 
+      - name: Generate release changelog
+        if: steps.decide.outputs.bump == 'true'
+        id: changelog
+        env:
+          PREV: ${{ steps.semver.outputs.current }}
+        run: |
+          PREV_SANITIZED="${PREV#v}"
+          if git rev-parse -q --verify "refs/tags/${PREV_SANITIZED}" >/dev/null; then
+            FROM_TAG="${PREV_SANITIZED}"
+          elif [ -n "${PREV}" ] && git rev-parse -q --verify "refs/tags/${PREV}" >/dev/null; then
+            FROM_TAG="${PREV}"
+          else
+            FROM_TAG=$(git tag --sort=-creatordate | head -n1)
+          fi
+          echo "Previous tag: ${FROM_TAG}"
+          git log --no-merges --pretty=format:"- %s (%h)" "${FROM_TAG}..HEAD" | grep -v 'chore(release)' > CHANGELOG.md || true
+          if [ ! -s CHANGELOG.md ]; then echo "No changes" > CHANGELOG.md; fi
+
       - name: Create GitHub Release
         if: steps.decide.outputs.bump == 'true'
         uses: ncipollo/release-action@v1.13.0
         with:
           tag: ${{ steps.semver.outputs.nextStrict }}
           name: ${{ steps.semver.outputs.nextStrict }}
-          body: Automated release
+          bodyFile: CHANGELOG.md
           token: ${{ github.token }}
           allowUpdates: true
           draft: false

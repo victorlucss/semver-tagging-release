@@ -17,16 +17,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate PR Title
-        uses: ytanikin/PRConventionalCommits@1.1.0
+      - name: Conventional PR Validation
+        uses: Namchee/conventional-pr@v1.0.0
         with:
-          task_types: '["feat","fix","docs","test","ci","refactor","perf","chore","revert"]'
-          add_label: 'false'
-
-      - name: Verify Conventional Commits
-        uses: taskmedia/action-conventional-commits@v1.1.19
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          skip_merge: 'true'
-          skip_revert: 'true'
-          types: 'feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert'
+          access_token: ${{ secrets.GITHUB_TOKEN }}
+          title_pattern: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .+$'
+          body: 'true'
+          commit_pattern: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .+$'
+          branch_pattern: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)/.+$'
+          issue: 'false'
+          maximum_changes: '50'

@@ -1,0 +1,31 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  validate-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Conventional PR Validation
+        id: validation
+        uses: Namchee/conventional-pr@v0.15.6
+        with:
+          access_token: ${{ secrets.GITHUB_TOKEN }}
+          title_pattern: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .+$'
+          body: 'true'
+          commit_pattern: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .+$'
+          branch_pattern: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)/.+$'
+          issue: 'false'
+          maximum_changes: '50'
+          message: ''

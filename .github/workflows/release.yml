@@ -26,6 +26,15 @@ jobs:
       - name: Install Changesets
         run: npm install --save-dev @changesets/cli
 
+      - name: Initialize Changesets if needed
+        run: |
+          if [ ! -f ".changeset/config.json" ]; then
+            echo "Initializing Changesets..."
+            npx changeset init
+          else
+            echo "Changesets already initialized"
+          fi
+
       - name: Calculate version from conventional commits
         id: semver
         uses: ietf-tools/semver-action@v1

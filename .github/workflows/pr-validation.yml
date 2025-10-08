@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0
 
       - name: Conventional PR Validation
-        uses: Namchee/conventional-pr@v1.0.0
+        uses: Namchee/conventional-pr
         with:
           access_token: ${{ secrets.GITHUB_TOKEN }}
           title_pattern: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .+$'

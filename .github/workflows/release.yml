@@ -7,6 +7,10 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   release:
     name: Release
@@ -14,6 +18,9 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -23,17 +30,6 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Install Changesets
-        run: npm install --save-dev @changesets/cli
-
-      - name: Initialize Changesets if needed
-        run: |
-          if [ ! -f ".changeset/config.json" ]; then
-            echo "Initializing Changesets..."
-            npx changeset init
-          else
-            echo "Changesets already initialized"
-          fi
 
       - name: Calculate version from conventional commits
         id: semver
@@ -60,18 +56,23 @@ jobs:
             echo "Version bump needed: ${CURRENT} → ${NEXT}"
           fi
 
-      - name: Generate changeset from conventional commits
+
+      - name: Update package.json version
         if: steps.check.outputs.bump == 'true'
         env:
           VERSION: ${{ steps.semver.outputs.nextStrict }}
-          BUMP_TYPE: ${{ steps.semver.outputs.bump }}
         run: |
-          # Create changeset file automatically from conventional commits
-          CHANGESET_ID=$(date +%s)
-          mkdir -p .changeset
-          
+          # Update package.json version
+          npm version $VERSION --no-git-tag-version
+          echo "Updated package.json to version $VERSION"
+
+      - name: Update CHANGELOG.md
+        if: steps.check.outputs.bump == 'true'
+        env:
+          VERSION: ${{ steps.semver.outputs.nextStrict }}
+          PREV_TAG: ${{ steps.semver.outputs.current }}
+        run: |
           # Get commits since last tag
-          PREV_TAG="${{ steps.semver.outputs.current }}"
           if [ -z "$PREV_TAG" ]; then
             PREV_TAG=$(git tag --sort=-creatordate | head -n1)
           fi
@@ -79,38 +80,30 @@ jobs:
           # Generate changelog from commits
           COMMITS=$(git log --no-merges --pretty=format:"- %s" "${PREV_TAG}..HEAD" | grep -v 'chore(release)' || echo "- No changes")
           
-          # Create changeset file
-          cat > ".changeset/${CHANGESET_ID}-auto-release.md" << EOF
-          ---
-          "semver": ${BUMP_TYPE}
-          ---
-          
+          # Create changelog entry
+          CHANGELOG_ENTRY="## [$VERSION] - $(date +%Y-%m-%d)
+
           $COMMITS
-          EOF
+
+          "
           
-          echo "Created changeset: .changeset/${CHANGESET_ID}-auto-release.md"
+          # Prepend to CHANGELOG.md
+          if [ -f "CHANGELOG.md" ]; then
+            echo -e "$CHANGELOG_ENTRY$(cat CHANGELOG.md)" > CHANGELOG.md
+          else
+            echo -e "$CHANGELOG_ENTRY" > CHANGELOG.md
+          fi
+          
+          echo "Updated CHANGELOG.md"
 
-      - name: Use Changesets to update package.json and changelog
-        if: steps.check.outputs.bump == 'true'
-        uses: changesets/action@v1
-        with:
-          version: npx changeset version
-          commit: "chore(release): version packages"
-          title: "Release ${{ steps.semver.outputs.nextStrict }}"
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
-      - name: Auto-merge changeset PR
+      - name: Commit version changes
         if: steps.check.outputs.bump == 'true'
         run: |
-          # Get the PR number from changeset action
-          PR_NUMBER=$(gh pr list --head main --json number --jq '.[0].number' || echo "")
-          if [ -n "$PR_NUMBER" ]; then
-            echo "Auto-merging PR #$PR_NUMBER"
-            gh pr merge $PR_NUMBER --merge --delete-branch
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json CHANGELOG.md
+          git commit -m "chore(release): version packages"
+          git push origin main
 
       - name: Create tag after changeset merge
         if: steps.check.outputs.bump == 'true'

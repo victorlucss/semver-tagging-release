@@ -1,3 +1,7 @@
+## [1.5.0] - 2025-10-08
+
+- feat: improve build-on-tag workflow with better functionality
+
 ## [1.4.0] - 2025-10-08
 
 - feat: test release workflow with simplified approach

@@ -1,3 +1,7 @@
+## [1.6.0] - 2025-10-08
+
+- feat: integrate actual EAS build workflows with build-on-tag
+
 ## [1.5.0] - 2025-10-08
 
 - feat: improve build-on-tag workflow with better functionality
